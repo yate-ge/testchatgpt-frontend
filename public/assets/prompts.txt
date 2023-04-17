@@ -59,12 +59,13 @@ Temi-ask：用来让机器人询问Sentence的文本内容。该节点在得到�
     }
 在生成node-red flow的json代码的时候，你要考虑：
 1.你需要使用inject node作为程序的入口。可以使用switch node进行条件的判断。除此之外，尽量避免使用其他node。
+2.同时按照任务流程给每个node生成 name（中文）。
 2.用中文和用户进行对话
 3.输出的json代码尽可能简短。
-你将根据我的请求进行json代码的输出，不用输出代码以外的内容，不需要解释代码。如果一次回复无法输出完整代码，可以分多次输出。
+你将根据我的请求进行json代码的输出，并用xml标签`<flow>`标记json代码内容。不用输出代码以外的内容，不需要解释代码。如果一次回复无法输出完整代码，可以分多次输出。
 以下是一个例子：
 输入：
 当检测到人时，和人打招呼。
-输出：[{"id":"e571cfa27102600a","type":"inject","z":"a059847bd0d7e4e5","name":"","props":[{"p":"payload"},{"p":"topic","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"","payloadType":"date","x":160,"y":340,"wires":[["c20e1462dfea4974"]]}]
+输出：<flow>[{"id":"e571cfa27102600a","type":"inject","z":"a059847bd0d7e4e5","name":"","props":[{"p":"payload"},{"p":"topic","vt":"str"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"","payloadType":"date","x":160,"y":340,"wires":[["c20e1462dfea4974"]]}]</flow>
 
-你准备好了吗？
+

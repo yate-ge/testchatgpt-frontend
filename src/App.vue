@@ -1,20 +1,23 @@
 <template>
   <div id="app">
     <div class="chat-container">
-      <div class="message" v-for="message in messages" :key="message.id" :class="message.sender">
-        <div class="content" :class="message.sender ==='user' ?  'content-user' : 'content-server'">
-          {{ message.text }}
+      <div class="message" v-for="message in messages" :key="message.id" :class="message.role">
+        <div class="content" :class="message.role ==='user' ?  'content-user' : 'content-assistant'">
+          {{ message.content }}
         </div>
       </div>
     </div>
     <div class="input-container">
       <textarea ref="textarea" v-model="userInput" @keyup.enter="sendMessage" />
       <button @click="sendMessage">发送</button>
+      <button @click="refreshTargetPage">刷新</button>
     </div>
   </div>
 </template>
 
 <script>
+import axios from "axios";
+
 export default {
   data() {
     return {
@@ -51,69 +54,69 @@ export default {
       }, 100);
 
     },
-    addMessage(text, sender) {
+    addMessage(content, role) {
       this.messages.push({
         id: this.messageCounter++,
-        text,
-        sender,
+        content,
+        role,
       });
 
 
     },
-    async fetchReply(text) {
-      try {
-        const response = await fetch("http://localhost:3333/stream", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: text,
-        });
+    // async fetchReply(text) {
+    //   try {
+    //     const response = await fetch("http://localhost:3333/stream", {
+    //       method: "POST",
+    //       headers: {
+    //         "Content-Type": "application/json",
+    //       },
+    //       body: text,
+    //     });
 
         
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let serverResponse = "";
+    //     const reader = response.body.getReader();
+    //     const decoder = new TextDecoder("utf-8");
+    //     let serverResponse = "";
 
-        const processStream = async ({ done, value }) => {
-          if (done) {
-            return;
-          }
+    //     const processStream = async ({ done, value }) => {
+    //       if (done) {
+    //         return;
+    //       }
 
-          const chunk = decoder.decode(value, { stream: true });
-          serverResponse += chunk;
-          const lines = serverResponse.split("\n");
+    //       const chunk = decoder.decode(value, { stream: true });
+    //       serverResponse += chunk;
+    //       const lines = serverResponse.split("\n");
 
-          while (lines.length > 1) {
-            const line = lines.shift();
-            if (line.startsWith("data: ")) {
-              const jsonString = line.substring(6);
-              if (jsonString.trim() !== "[DONE]") {
-                const data = JSON.parse(jsonString);
-                const delta = data.choices[0].delta;
-                if (delta && delta.content) {
-                  // Append the new content to the last server message
-                  const serverMessage = this.messages[this.messages.length - 1];
-                  if (serverMessage.sender === "server") {
-                    serverMessage.text += delta.content;
-                  } else {
-                    this.addMessage(delta.content, "server");
-                  }
-                }
-              }
-            }
-          }
+    //       while (lines.length > 1) {
+    //         const line = lines.shift();
+    //         if (line.startsWith("data: ")) {
+    //           const jsonString = line.substring(6);
+    //           if (jsonString.trim() !== "[DONE]") {
+    //             const data = JSON.parse(jsonString);
+    //             const delta = data.choices[0].delta;
+    //             if (delta && delta.content) {
+    //               // Append the new content to the last server message
+    //               const serverMessage = this.messages[this.messages.length - 1];
+    //               if (serverMessage.sender === "server") {
+    //                 serverMessage.text += delta.content;
+    //               } else {
+    //                 this.addMessage(delta.content, "server");
+    //               }
+    //             }
+    //           }
+    //         }
+    //       }
 
-          serverResponse = lines[0];
-          return reader.read().then(processStream);
-        };
+    //       serverResponse = lines[0];
+    //       return reader.read().then(processStream);
+    //     };
 
-        reader.read().then(processStream);
-      } catch (error) {
-        console.error("Error fetching reply:", error);
-        this.addMessage("Error fetching reply", "server");
-      }
-    },
+    //     reader.read().then(processStream);
+    //   } catch (error) {
+    //     console.error("Error fetching reply:", error);
+    //     this.addMessage("Error fetching reply", "server");
+    //   }
+    // },
     async fetchConversationReply() {
       try {
         console.log('historyMsg', this.historyMsg);
@@ -132,8 +135,16 @@ export default {
         const decoder = new TextDecoder("utf-8");
         let serverResponse = "";
 
+
+        // 在处理前显示正在生成中的信息
+        this.addMessage("正在生成中....", "assistant");
+        //let serverResponseProcessed = "";
+
         const processStream = async ({ done, value }) => {
           if (done) {
+            const serverMsg = this.messages[this.messages.length - 1];
+            serverMsg.content = "生成完成";
+            this.processResultfromGPT();
             return;
           }
 
@@ -149,18 +160,40 @@ export default {
                 const data = JSON.parse(jsonString);
                 const delta = data.choices[0].delta;
                 if (delta && delta.content) {
-                  // Append the new content to the last server message
-                  const serverMessage = this.messages[this.messages.length - 1];
-                  if (serverMessage.sender === "server") {
-                    serverMessage.text += delta.content;
-                  } else {
-                    this.addMessage(delta.content, "server");
+                  //serverResponseProcessed += delta.content;
 
+                  const lastMsg = this.historyMsg[this.historyMsg.length - 1];
+                  console.log('lastMsg', lastMsg.role);
+                  if (lastMsg.role === "assistant") {
+                    lastMsg.content += delta.content;
+                  } else {
                     this.historyMsg.push({
                       role: 'assistant',
                       content: delta.content
                     });
                   }
+
+
+                  // // Append the new content to the last server message
+                  // const serverMessage = this.messages[this.messages.length - 1];
+                  // if (serverMessage.role === "assistant") {
+                  //   serverMessage.content += delta.content;
+                  //   //serverMessage.text = "正在生成中....";
+                  // } else {
+                  //   this.addMessage(delta.content, "assistant");
+                    
+                    // console.log(this.messages[this.messages.length - 2]);
+                    // // 将消息中的最后的个sender为‘server’的text改为‘已完成'
+                    // const lastServerMsg = this.messages[this.messages.length - 2];
+                    // if (lastServerMsg.sender === "server") {
+                    //   lastServerMsg.text = "已完成";
+                    // }
+
+                    // this.historyMsg.push({
+                    //   role: 'assistant',
+                    //   content: delta.content
+                    // });
+                  
                 }
               }
             }
@@ -175,6 +208,33 @@ export default {
         console.error("Error fetching reply:", error);
         this.addMessage("Error fetching reply", "server");
       }      
+    },
+    async processResultfromGPT() {
+      //通过post向“http://127.0.0.1:1880/flows”发起请求，将生成的文本传递给node-red。headers中的“Content-Type”为“application/json”，“Node-RED-Deployment-Type”为“full”。body是messages中的最后一条消息的content。
+
+      try {
+        const rawdata = this.historyMsg[this.historyMsg.length - 1].content;
+        // 将rawdata中<flow>标记的内容提取出来
+        const flowdata = rawdata.match(/<flow>([\s\S]*?)<\/flow>/)[1];
+        console.log('flowdata', flowdata);
+
+        const headers = {
+          "Content-Type": "application/json",
+          "Node-RED-Deployment-Type": "full"
+        };
+        const response = await axios.post('http://127.0.0.1:1880/flows', flowdata, { headers: headers });
+
+        // 处理响应
+        console.log(response);
+        this.refreshTargetPage();
+        
+      } catch(error) {
+        console.error("Error fetching reply:", error);
+      }
+      
+  
+
+
     },
     resizeTextarea(event) {
       event.target.style.height = "auto";
@@ -199,7 +259,24 @@ export default {
       .catch(error => {
         console.error('读取文件失败:', error);
       });
+    },
+    refreshTargetPage() {
+      window.postMessage(
+        {
+          type: 'MY_CUSTOM_EVENT',
+          data: {
+            message: 'refresh',
+          },
+
+        }, '*'
+
+
+      );
+
+
+      console.log('refreshTargetPage');
     }
+    
     
 
 
@@ -207,6 +284,22 @@ export default {
   mounted() {
     this.$refs.textarea.addEventListener("input", this.resizeTextarea);
     this.setSystemMsg();
+
+    // setTimeout(function() {
+    // window.postMessage(
+    // {
+    //   type: 'MY_CUSTOM_EVENT',
+    //   data: {
+    //     message: 'Hello from the main window',
+    //   },
+    //   }
+    // );
+    // console.log('mounted');
+    // }, 5000);
+
+
+
+    
   }
 };
 </script>
@@ -242,7 +335,7 @@ export default {
   
 }
 
-.message.server {
+.message.assistant {
   justify-content: flex-start;
   
 }
@@ -259,7 +352,7 @@ export default {
   color: #fff;
 }
 
-.content-server {
+.content-assistant {
   background-color: #f1f1f1;
   color: #333;
 }
