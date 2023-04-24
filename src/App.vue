@@ -10,7 +10,6 @@
     <div class="input-container">
       <textarea ref="textarea" v-model="userInput" @keyup.enter="sendMessage" />
       <button @click="sendMessage">发送</button>
-      <button @click="refreshTargetPage">刷新</button>
     </div>
   </div>
 </template>
@@ -214,9 +213,17 @@ export default {
 
       try {
         const rawdata = this.historyMsg[this.historyMsg.length - 1].content;
+        console.log('rawdata', rawdata);
         // 将rawdata中<flow>标记的内容提取出来
         const flowdata = rawdata.match(/<flow>([\s\S]*?)<\/flow>/)[1];
         console.log('flowdata', flowdata);
+
+        // 处理<describ>中的内容
+        const describdata = rawdata.match(/<describ>([\s\S]*?)<\/describ>/)[1];
+        console.log('describdata', describdata);
+        const serverMsg = this.messages[this.messages.length - 1];
+        serverMsg.content = "生成完成，我将按照一下内容进行部署：\n" + describdata;
+        
 
         const headers = {
           "Content-Type": "application/json",
@@ -313,7 +320,7 @@ export default {
 }
 
 .chat-container {
-  width: 900px;
+  width: 500px;
   height: 90%;
   min-height: 500px;
   border: 1px solid #ccc;
@@ -364,7 +371,7 @@ export default {
 }
 
 input[type="text"] {
-  width: 700px;
+  width: 400px;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
@@ -373,7 +380,7 @@ input[type="text"] {
 }
 
 textarea {
-  width: 700px;
+  width: 400px;
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
