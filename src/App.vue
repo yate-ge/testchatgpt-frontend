@@ -33,6 +33,7 @@ export default {
       if (this.userInput.trim() === "") return;
 
       this.addMessage(this.userInput, "user");
+      this.addMessage("正在生成中....", "assistant");
       this.historyMsg.push({
         role: 'user',
         content: this.userInput
@@ -130,13 +131,13 @@ export default {
 
 
         // 在处理前显示正在生成中的信息
-        this.addMessage("正在生成中....", "assistant");
+        //this.addMessage("正在生成中....", "assistant");
         //let serverResponseProcessed = "";
 
         const processStream = async ({ done, value }) => {
           if (done) {
-            const serverMsg = this.messages[this.messages.length - 1];
-            serverMsg.content = "生成完成";
+            //const serverMsg = this.messages[this.messages.length - 1];
+            //serverMsg.content = "生成完成";
             this.processResultfromGPT();
             return;
           }
@@ -232,7 +233,7 @@ export default {
 
           const gotoPrompt = "go on";
 
-          this.addMessage(gotoPrompt, "user");
+          //this.addMessage(gotoPrompt, "user");
           this.historyMsg.push({
             role: 'user',
             content: gotoPrompt
