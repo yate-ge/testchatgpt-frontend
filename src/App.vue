@@ -25,6 +25,7 @@ export default {
       messageCounter: 0,
       systemMsg: "",
       historyMsg: [],
+      currentMsg: ""
     };
   },
   methods: {
@@ -41,12 +42,6 @@ export default {
       this.userInput = "";
 
 
-      //this.setSystemMsg();
-
-      
-      //resize textarea height
-      // this.resizeTextarea({ target: this.$refs.textarea });
-
       //resize textarea height after 0.5 sce
       setTimeout(() => {
         this.resizeTextarea({ target: this.$refs.textarea });
@@ -59,7 +54,6 @@ export default {
         content,
         role,
       });
-
 
     },
     // async fetchReply(text) {
@@ -118,9 +112,9 @@ export default {
     // },
     async fetchConversationReply() {
       try {
-        console.log('historyMsg', this.historyMsg);
-        const stringhistory = JSON.stringify(this.historyMsg);
-        console.log('stringhistory', stringhistory);
+        //console.log('historyMsg', this.historyMsg);
+        //const stringhistory = JSON.stringify(this.historyMsg);
+        //console.log('stringhistory', stringhistory);
         const response = await fetch("http://localhost:3333/conversation", {
           method: "POST",
           // mode: 'cors',
@@ -171,27 +165,6 @@ export default {
                       content: delta.content
                     });
                   }
-
-
-                  // // Append the new content to the last server message
-                  // const serverMessage = this.messages[this.messages.length - 1];
-                  // if (serverMessage.role === "assistant") {
-                  //   serverMessage.content += delta.content;
-                  //   //serverMessage.text = "正在生成中....";
-                  // } else {
-                  //   this.addMessage(delta.content, "assistant");
-                    
-                    // console.log(this.messages[this.messages.length - 2]);
-                    // // 将消息中的最后的个sender为‘server’的text改为‘已完成'
-                    // const lastServerMsg = this.messages[this.messages.length - 2];
-                    // if (lastServerMsg.sender === "server") {
-                    //   lastServerMsg.text = "已完成";
-                    // }
-
-                    // this.historyMsg.push({
-                    //   role: 'assistant',
-                    //   content: delta.content
-                    // });
                   
                 }
               }
@@ -211,33 +184,68 @@ export default {
     async processResultfromGPT() {
       //通过post向“http://127.0.0.1:1880/flows”发起请求，将生成的文本传递给node-red。headers中的“Content-Type”为“application/json”，“Node-RED-Deployment-Type”为“full”。body是messages中的最后一条消息的content。
 
-      try {
-        const rawdata = this.historyMsg[this.historyMsg.length - 1].content;
-        console.log('rawdata', rawdata);
-        // 将rawdata中<flow>标记的内容提取出来
-        const flowdata = rawdata.match(/<flow>([\s\S]*?)<\/flow>/)[1];
-        console.log('flowdata', flowdata);
-
-        // 处理<describ>中的内容
-        const describdata = rawdata.match(/<describ>([\s\S]*?)<\/describ>/)[1];
-        console.log('describdata', describdata);
-        const serverMsg = this.messages[this.messages.length - 1];
-        serverMsg.content = "生成完成，我将按照一下内容进行部署：\n" + describdata;
-        
-
-        const headers = {
-          "Content-Type": "application/json",
-          "Node-RED-Deployment-Type": "full"
-        };
-        const response = await axios.post('http://127.0.0.1:1880/flows', flowdata, { headers: headers });
-
-        // 处理响应
-        console.log(response);
-        this.refreshTargetPage();
-        
-      } catch(error) {
-        console.error("Error fetching reply:", error);
+      if(this.currentMsg.length === 0) {
+        this.currentMsg = this.historyMsg[this.historyMsg.length - 1].content;
+        //console.log('rawdata', this.currentMsg);
+      } else {
+        this.currentMsg += this.historyMsg[this.historyMsg.length - 1].content;
+        //console.log('rawdata', this.currentMsg);
       }
+
+      // 对当前msg进行处理，将内容提取出来，如果提取不出来的话，表示内容不完整，再次请求服务器
+
+      try {
+        const donedataMatch = this.currentMsg.match(/<done>([\s\S]*?)<\/done>/);
+        if (donedataMatch) {
+          console.log('已经输出完成内容，rawdata', this.currentMsg);
+          // 表示内容完整，进行下一步处理
+          //const donedata = donedataMatch[1];
+
+          // 处理flow中的内容
+          const flowdata = this.currentMsg.match(/<flow>([\s\S]*?)<\/flow>/)[1];
+          console.log('flowdata', flowdata);
+
+          // 处理<describ>中的内容，并在UI上进行反馈
+          const describdata = this.currentMsg.match(/<describ>([\s\S]*?)<\/describ>/)[1];
+          console.log('describdata', describdata);
+          const serverMsg = this.messages[this.messages.length - 1];
+          serverMsg.content = "生成完成，我将按照一下内容进行部署：\n" + describdata;
+
+          // 将生成的内容发送给node-red
+          const headers = {
+            "Content-Type": "application/json",
+            "Node-RED-Deployment-Type": "full"
+          };
+          const response = await axios.post('http://127.0.0.1:1880/flows', flowdata, { headers: headers });
+
+          // 处理响应
+          console.log(response);
+          this.refreshTargetPage();
+
+          // 清空当前msg
+          this.currentMsg = "";
+
+        }else{
+          // 内容不完整，再次请求服务器
+          //this.fetchConversationReply();
+          console.log('内容不完整，再次请求服务器');
+
+          const gotoPrompt = "go on";
+
+          this.addMessage(gotoPrompt, "user");
+          this.historyMsg.push({
+            role: 'user',
+            content: gotoPrompt
+          });
+          //this.fetchReply(this.userInput);
+          this.fetchConversationReply();
+        }
+
+      }catch (error) {
+        console.error("Error fetching reply:", error);
+        this.addMessage("Error fetching reply", "server");
+      }
+
       
   
 
@@ -291,18 +299,6 @@ export default {
   mounted() {
     this.$refs.textarea.addEventListener("input", this.resizeTextarea);
     this.setSystemMsg();
-
-    // setTimeout(function() {
-    // window.postMessage(
-    // {
-    //   type: 'MY_CUSTOM_EVENT',
-    //   data: {
-    //     message: 'Hello from the main window',
-    //   },
-    //   }
-    // );
-    // console.log('mounted');
-    // }, 5000);
 
 
 
