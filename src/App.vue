@@ -8,7 +8,7 @@
       </div>
     </div>
     <div class="input-container">
-      <textarea ref="textarea" v-model="userInput" @keyup.enter="sendMessage" />
+      <textarea ref="textarea" v-model="userInput" />
       <button @click="sendMessage">发送</button>
     </div>
   </div>
