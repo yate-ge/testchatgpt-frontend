@@ -32,11 +32,44 @@ export default {
     async sendMessage() {
       if (this.userInput.trim() === "") return;
 
+      let sendContent = this.userInput;
+
+
+      //取回node-red 当前的flow，并判断是否为空
+      try {
+        const response = await axios.get("http://127.0.0.1:1880/flows");
+        const flows = response.data;
+
+        // 检查flows是否为空
+        if (flows.length === 0) {
+          console.log('当前flow为空');
+          
+        } else {
+          // 检查是否仅有一个tab节点且没有其他节点
+          if (flows.length === 1 && flows[0].type === 'tab') {
+            console.log('当前flow为空');
+          } else {
+            console.log('当前flow不为空');
+
+            sendContent = "请按照以下需要对代码进行修改：\n" + this.userInput + "\n" + "代码: \n" + response.data;
+          }
+        }
+      } catch (error) {
+        console.error('获取flows失败：', error.message);
+        return false;
+      }    
+
+
+
+
+
+      //const sendContent = "请按照以下需要对代码进行修改：\n" + this.userInput + "\n" + "代码: \n" + response.data;
+
       this.addMessage(this.userInput, "user");
       this.addMessage("正在生成中....", "assistant");
       this.historyMsg.push({
         role: 'user',
-        content: this.userInput
+        content: sendContent
       });
       //this.fetchReply(this.userInput);
       this.fetchConversationReply();
