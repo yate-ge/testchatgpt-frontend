@@ -220,10 +220,10 @@ export default {
 
       if(this.currentMsg.length === 0) {
         this.currentMsg = this.historyMsg[this.historyMsg.length - 1].content;
-        //console.log('rawdata', this.currentMsg);
+        console.log('rawdata', this.currentMsg);
       } else {
         this.currentMsg += this.historyMsg[this.historyMsg.length - 1].content;
-        //console.log('rawdata', this.currentMsg);
+        console.log('rawdata', this.currentMsg);
       }
 
       // 对当前msg进行处理，将内容提取出来，如果提取不出来的话，表示内容不完整，再次请求服务器
